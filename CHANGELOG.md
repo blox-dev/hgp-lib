@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+---
+
+## [1.2.3](https://github.com/fii-optim-lab/hgp-lib/releases/tag/1.2.3)
+
+
 ### Performance Improvements
 
 - `BooleanGP` stores the training data in column-major order, which speeds up rule evaluation.
@@ -11,6 +16,8 @@
 ## [1.2.2](https://github.com/fii-optim-lab/hgp-lib/releases/tag/1.2.2)
 
 Added separate module for benchmarking performance.
+
+---
 
 ### API Changes
 - Added `serialize` and `deserialize` methods for serializing and deserializing rules.
@@ -25,6 +32,7 @@ Added separate module for benchmarking performance.
 
 - Scorer optimization is skipped when the input data is unique.
 
+---
 
 ## [1.2.0](https://github.com/fii-optim-lab/hgp-lib/releases/tag/1.2.0)
 
