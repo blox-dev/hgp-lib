@@ -69,7 +69,9 @@ class ThresholdSimplifier:
             dnf_simp = self._simplify_dnf(dnf)
             key = self._expr_key(dnf_simp)
             expr_simp = self._dnf_to_expr(dnf_simp)
-            if (self._best_dnf is None or sp.count_ops(expr_simp) < sp.count_ops(self._best_dnf)):
+            if self._best_dnf is None or sp.count_ops(expr_simp) < sp.count_ops(
+                self._best_dnf
+            ):
                 self._best_dnf = expr_simp
             return expr_simp, key
 
@@ -78,16 +80,18 @@ class ThresholdSimplifier:
             cnf_simp = self._simplify_cnf(cnf)
             key = self._expr_key(cnf_simp)
             expr_simp = self._cnf_to_expr(cnf_simp)
-            if (self._best_cnf is None or sp.count_ops(expr_simp) < sp.count_ops(self._best_cnf)):
+            if self._best_cnf is None or sp.count_ops(expr_simp) < sp.count_ops(
+                self._best_cnf
+            ):
                 self._best_cnf = expr_simp
             return expr_simp, key
 
         step1 = simp_cnf
         step2 = simp_dnf
 
-        if (is_cnf(expr)):
+        if is_cnf(expr):
             self._best_cnf = expr
-        elif (is_dnf(expr)):
+        elif is_dnf(expr):
             self._best_dnf = expr
             step1, step2 = step2, step1
         else:
@@ -97,7 +101,7 @@ class ThresholdSimplifier:
 
         for i in range(self.max_iterations):
             expr_step1, _ = step1(expr)
-            expr_step2, key = step2(expr)
+            expr_step2, key = step2(expr_step1)
 
             if key == previous_key:
                 return {
@@ -174,9 +178,7 @@ class ThresholdSimplifier:
         if sp.simplify(a > b) is sp.true:
             return 1
 
-        raise ValueError(
-            f"Cannot compare thresholds {a!r} and {b!r}"
-        )
+        raise ValueError(f"Cannot compare thresholds {a!r} and {b!r}")
 
     # ==================================================================
     # Interval representation
@@ -398,9 +400,7 @@ class ThresholdSimplifier:
         result = set()
 
         for variable, atoms in by_variable.items():
-            lower, lower_closed, upper, upper_closed = intervals[
-                variable
-            ]
+            lower, lower_closed, upper, upper_closed = intervals[variable]
 
             # Strongest lower bound.
             if lower is not None:
@@ -554,33 +554,21 @@ class ThresholdSimplifier:
             _, op, value = self._parts(atom)
 
             if op == "<":
-                intervals.append(
-                    (None, False, value, False)
-                )
+                intervals.append((None, False, value, False))
 
             elif op == "<=":
-                intervals.append(
-                    (None, False, value, True)
-                )
+                intervals.append((None, False, value, True))
 
             elif op == ">":
-                intervals.append(
-                    (value, False, None, False)
-                )
+                intervals.append((value, False, None, False))
 
             elif op == ">=":
-                intervals.append(
-                    (value, True, None, False)
-                )
+                intervals.append((value, True, None, False))
 
         if not intervals:
             return False
 
-        intervals.sort(
-            key=cmp_to_key(
-                self._compare_interval_start
-            )
-        )
+        intervals.sort(key=cmp_to_key(self._compare_interval_start))
 
         # To cover all reals, the first interval must start at -inf.
         if intervals[0][0] is not None:
@@ -599,7 +587,6 @@ class ThresholdSimplifier:
             upper,
             upper_closed,
         ) in intervals[1:]:
-
             if lower is not None:
                 c = self._cmp(
                     lower,
@@ -613,12 +600,8 @@ class ThresholdSimplifier:
                 # Touching at a point:
                 # (-inf, 3) U (3, inf)
                 # leaves 3 uncovered.
-                if c == 0:
-                    if not (
-                        current_upper_closed
-                        or lower_closed
-                    ):
-                        return False
+                if c == 0 and not (current_upper_closed or lower_closed):
+                    return False
 
             # This interval reaches +inf.
             if upper is None:
@@ -634,10 +617,7 @@ class ThresholdSimplifier:
                 current_upper_closed = upper_closed
 
             elif c == 0:
-                current_upper_closed = (
-                    current_upper_closed
-                    or upper_closed
-                )
+                current_upper_closed = current_upper_closed or upper_closed
 
         return False
 
@@ -656,10 +636,7 @@ class ThresholdSimplifier:
                 [],
             ).append(atom)
 
-        return any(
-            self._union_covers_reals(atoms)
-            for atoms in by_variable.values()
-        )
+        return any(self._union_covers_reals(atoms) for atoms in by_variable.values())
 
     # ==================================================================
     # CNF clause simplification
@@ -717,15 +694,10 @@ class ThresholdSimplifier:
         if not target:
             return False
 
-        negated_target = [
-            self._negate_atom(atom)
-            for atom in target
-        ]
+        negated_target = [self._negate_atom(atom) for atom in target]
 
         for source_atom in source:
-            test_term = frozenset(
-                [source_atom] + negated_target
-            )
+            test_term = frozenset([source_atom] + negated_target)
 
             # If this is satisfiable, source_atom is a counterexample.
             if self._interval_from_atoms(test_term) is not None:
@@ -829,9 +801,7 @@ class ThresholdSimplifier:
             result = self.DNF_FALSE
 
         elif self._is_atom(expr):
-            result = frozenset(
-                [frozenset([expr])]
-            )
+            result = frozenset([frozenset([expr])])
 
         elif expr.func is sp.Or:
             result = self.DNF_FALSE
@@ -856,9 +826,7 @@ class ThresholdSimplifier:
             result = self._simplify_dnf(result)
 
         else:
-            raise TypeError(
-                f"Unsupported Boolean expression: {expr}"
-            )
+            raise TypeError(f"Unsupported Boolean expression: {expr}")
 
         self._dnf_cache[expr] = result
         return result
@@ -893,9 +861,7 @@ class ThresholdSimplifier:
         if not result:
             return self.DNF_FALSE
 
-        return self._absorb_dnf(
-            frozenset(result)
-        )
+        return self._absorb_dnf(frozenset(result))
 
     # ==================================================================
     # CNF construction
@@ -912,9 +878,7 @@ class ThresholdSimplifier:
             result = self.CNF_FALSE
 
         elif self._is_atom(expr):
-            result = frozenset(
-                [frozenset([expr])]
-            )
+            result = frozenset([frozenset([expr])])
 
         elif expr.func is sp.And:
             result = self.CNF_TRUE
@@ -947,9 +911,7 @@ class ThresholdSimplifier:
             result = self._simplify_cnf(result)
 
         else:
-            raise TypeError(
-                f"Unsupported Boolean expression: {expr}"
-            )
+            raise TypeError(f"Unsupported Boolean expression: {expr}")
 
         self._cnf_cache[expr] = result
         return result
@@ -983,9 +945,7 @@ class ThresholdSimplifier:
         #
         for a in left:
             for b in right:
-                clause = self._simplify_clause(
-                    a | b
-                )
+                clause = self._simplify_clause(a | b)
 
                 if clause is None:
                     # TRUE clause disappears from AND.
@@ -999,9 +959,7 @@ class ThresholdSimplifier:
         if not result:
             return self.CNF_TRUE
 
-        return self._absorb_cnf(
-            frozenset(result)
-        )
+        return self._absorb_cnf(frozenset(result))
 
     # ==================================================================
     # Conversion back to SymPy
@@ -1012,18 +970,14 @@ class ThresholdSimplifier:
         if not atoms:
             return sp.true
 
-        return sp.And(
-            *sorted(atoms, key=str)
-        )
+        return sp.And(*sorted(atoms, key=str))
 
     @staticmethod
     def _or_expr(atoms):
         if not atoms:
             return sp.false
 
-        return sp.Or(
-            *sorted(atoms, key=str)
-        )
+        return sp.Or(*sorted(atoms, key=str))
 
     def _dnf_to_expr(self, dnf):
         if dnf == self.DNF_FALSE:
@@ -1032,14 +986,9 @@ class ThresholdSimplifier:
         if dnf == self.DNF_TRUE:
             return sp.true
 
-        terms = [
-            self._and_expr(term)
-            for term in dnf
-        ]
+        terms = [self._and_expr(term) for term in dnf]
 
-        return sp.Or(
-            *sorted(terms, key=str)
-        )
+        return sp.Or(*sorted(terms, key=str))
 
     def _cnf_to_expr(self, cnf):
         if cnf == self.CNF_TRUE:
@@ -1048,14 +997,9 @@ class ThresholdSimplifier:
         if cnf == self.CNF_FALSE:
             return sp.false
 
-        clauses = [
-            self._or_expr(clause)
-            for clause in cnf
-        ]
+        clauses = [self._or_expr(clause) for clause in cnf]
 
-        return sp.And(
-            *sorted(clauses, key=str)
-        )
+        return sp.And(*sorted(clauses, key=str))
 
     # ==================================================================
     # Fixed-point key
@@ -1063,13 +1007,7 @@ class ThresholdSimplifier:
 
     @staticmethod
     def _expr_key(dnf):
-        return frozenset(
-            frozenset(
-                str(atom)
-                for atom in term
-            )
-            for term in dnf
-        )
+        return frozenset(frozenset(str(atom) for atom in term) for term in dnf)
 
 
 def simplify_threshold_formula(expr):

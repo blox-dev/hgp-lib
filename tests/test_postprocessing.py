@@ -1,7 +1,12 @@
-from itertools import product
+from itertools import pairwise, product
 
+import pytest
+import sympy as sp
 from sympy import sympify
 from sympy.core.relational import Rel
+
+from hgp_lib.postprocessing import ThresholdSimplifier, simplify_threshold_formula
+
 
 def _collect_bounds(expr, bounds):
     for atom in expr.atoms(Rel):
@@ -14,9 +19,7 @@ def _collect_bounds(expr, bounds):
             bounds.setdefault(rhs, set()).add(lhs)
 
         else:
-            raise ValueError(
-                f"Expected variable-vs-number comparison, got: {atom}"
-            )
+            raise ValueError(f"Expected variable-vs-number comparison, got: {atom}")
 
 
 def _sample_points(bounds):
@@ -31,7 +34,7 @@ def _sample_points(bounds):
         samples.add(values[0] - 1)
 
         # one point between every pair of boundaries
-        for a, b in zip(values, values[1:]):
+        for a, b in pairwise(values, values[1:]):
             samples.add((a + b) / 2)
 
         # one point above the largest boundary
@@ -84,16 +87,8 @@ def equivalent(e1, e2):
 
     return True
 
+
 # ====
-
-import unittest
-import pytest
-import random
-import numpy as np
-import sympy as sp
-
-from hgp_lib.postprocessing import ThresholdSimplifier, simplify_threshold_formula
-
 
 # class TestPostprecessing(unittest.TestCase):
 #     def setUp(self):
@@ -184,8 +179,14 @@ def test_simplify_negated_atom(ts, x):
 @pytest.mark.parametrize(
     ("expr", "expected"),
     [
-        (sp.And(sp.true, sp.Symbol("x", real=True) >= 0), sp.Symbol("x", real=True) >= 0),
-        (sp.Or(sp.false, sp.Symbol("x", real=True) >= 0), sp.Symbol("x", real=True) >= 0),
+        (
+            sp.And(sp.true, sp.Symbol("x", real=True) >= 0),
+            sp.Symbol("x", real=True) >= 0,
+        ),
+        (
+            sp.Or(sp.false, sp.Symbol("x", real=True) >= 0),
+            sp.Symbol("x", real=True) >= 0,
+        ),
         (sp.And(sp.false, sp.Symbol("x", real=True) >= 0), sp.false),
         (sp.Or(sp.true, sp.Symbol("x", real=True) >= 0), sp.true),
     ],
@@ -229,7 +230,10 @@ def test_repeated_simplify_calls_do_not_use_stale_expression_state(x):
 
     assert_equivalent_on_grid(second["best_dnf"], x < 0)
     assert_equivalent_on_grid(second["best_cnf"], x < 0)
-    assert first["best_dnf"] is not second["best_dnf"] or first["best_dnf"] != second["best_dnf"]
+    assert (
+        first["best_dnf"] is not second["best_dnf"]
+        or first["best_dnf"] != second["best_dnf"]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -284,9 +288,10 @@ def test_negate_atom(expr, expected):
 
 def test_negate_atom_has_expected_double_negation_property(x):
     for atom in atoms_for(x).values():
-        assert ThresholdSimplifier._negate_atom(
-            ThresholdSimplifier._negate_atom(atom)
-        ) == atom
+        assert (
+            ThresholdSimplifier._negate_atom(ThresholdSimplifier._negate_atom(atom))
+            == atom
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -374,14 +379,22 @@ def test_valid_interval(ts, interval, expected):
 @pytest.mark.parametrize(
     ("atoms", "expected"),
     [
-        ([sp.Symbol("x", real=True) > 1, sp.Symbol("x", real=True) < 5],
-        {sp.Symbol("x", real=True): [sp.Integer(1), False, sp.Integer(5), False]}),
-        ([sp.Symbol("x", real=True) >= 1, sp.Symbol("x", real=True) <= 5],
-        {sp.Symbol("x", real=True): [sp.Integer(1), True, sp.Integer(5), True]}),
-        ([sp.Symbol("x", real=True) > 1, sp.Symbol("x", real=True) >= 5],
-        {sp.Symbol("x", real=True): [sp.Integer(5), True, None, False]}),
-        ([sp.Symbol("x", real=True) < 5, sp.Symbol("x", real=True) <= 3],
-        {sp.Symbol("x", real=True): [None, False, sp.Integer(3), True]}),
+        (
+            [sp.Symbol("x", real=True) > 1, sp.Symbol("x", real=True) < 5],
+            {sp.Symbol("x", real=True): [sp.Integer(1), False, sp.Integer(5), False]},
+        ),
+        (
+            [sp.Symbol("x", real=True) >= 1, sp.Symbol("x", real=True) <= 5],
+            {sp.Symbol("x", real=True): [sp.Integer(1), True, sp.Integer(5), True]},
+        ),
+        (
+            [sp.Symbol("x", real=True) > 1, sp.Symbol("x", real=True) >= 5],
+            {sp.Symbol("x", real=True): [sp.Integer(5), True, None, False]},
+        ),
+        (
+            [sp.Symbol("x", real=True) < 5, sp.Symbol("x", real=True) <= 3],
+            {sp.Symbol("x", real=True): [None, False, sp.Integer(3), True]},
+        ),
     ],
 )
 def test_interval_from_atoms(ts, atoms, expected):
@@ -403,9 +416,7 @@ def test_interval_from_atoms_detects_contradictions(ts, atoms):
 
 def test_interval_from_atoms_handles_multiple_variables(ts):
     x, y = sp.symbols("x y", real=True)
-    result = ts._interval_from_atoms(
-        frozenset([x > 1, x <= 4, y >= -2, y < 10])
-    )
+    result = ts._interval_from_atoms(frozenset([x > 1, x <= 4, y >= -2, y < 10]))
     assert result == {
         x: [sp.Integer(1), False, sp.Integer(4), True],
         y: [sp.Integer(-2), True, sp.Integer(10), False],
@@ -690,15 +701,11 @@ def test_to_dnf_contradictory_and_becomes_false(ts, x):
 
 
 def test_to_dnf_true_and_x_is_x(ts, x):
-    assert ts._to_dnf(sp.And(sp.true, x >= 0)) == frozenset(
-        [frozenset([x >= 0])]
-    )
+    assert ts._to_dnf(sp.And(sp.true, x >= 0)) == frozenset([frozenset([x >= 0])])
 
 
 def test_to_dnf_false_or_x_is_x(ts, x):
-    assert ts._to_dnf(sp.Or(sp.false, x >= 0)) == frozenset(
-        [frozenset([x >= 0])]
-    )
+    assert ts._to_dnf(sp.Or(sp.false, x >= 0)) == frozenset([frozenset([x >= 0])])
 
 
 def test_to_dnf_unsupported_expression_raises(ts, x):
@@ -855,25 +862,22 @@ def test_expr_key_is_structural_and_uses_strings(ts, x):
 @pytest.mark.parametrize(
     "expr",
     [
-        sp.Or(sp.And(sp.Symbol("x", real=True) > 1,
-                    sp.Symbol("x", real=True) < 5),
-            sp.Symbol("x", real=True) >= 10),
-        sp.And(sp.Or(sp.Symbol("x", real=True) < 0,
-                    sp.Symbol("x", real=True) >= 5),
-            sp.Symbol("x", real=True) <= 20),
-        sp.Not(sp.Or(sp.Symbol("x", real=True) <= 0,
-                    sp.Symbol("x", real=True) >= 10)),
         sp.Or(
-            sp.And(sp.Symbol("x", real=True) >= 0,
-                sp.Symbol("x", real=True) <= 3),
-            sp.And(sp.Symbol("x", real=True) > 3,
-                sp.Symbol("x", real=True) < 5),
+            sp.And(sp.Symbol("x", real=True) > 1, sp.Symbol("x", real=True) < 5),
+            sp.Symbol("x", real=True) >= 10,
         ),
         sp.And(
-            sp.Or(sp.Symbol("x", real=True) < -2,
-                sp.Symbol("x", real=True) >= 2),
-            sp.Or(sp.Symbol("x", real=True) <= 5,
-                sp.Symbol("x", real=True) > 8),
+            sp.Or(sp.Symbol("x", real=True) < 0, sp.Symbol("x", real=True) >= 5),
+            sp.Symbol("x", real=True) <= 20,
+        ),
+        sp.Not(sp.Or(sp.Symbol("x", real=True) <= 0, sp.Symbol("x", real=True) >= 10)),
+        sp.Or(
+            sp.And(sp.Symbol("x", real=True) >= 0, sp.Symbol("x", real=True) <= 3),
+            sp.And(sp.Symbol("x", real=True) > 3, sp.Symbol("x", real=True) < 5),
+        ),
+        sp.And(
+            sp.Or(sp.Symbol("x", real=True) < -2, sp.Symbol("x", real=True) >= 2),
+            sp.Or(sp.Symbol("x", real=True) <= 5, sp.Symbol("x", real=True) > 8),
         ),
     ],
 )
@@ -1016,9 +1020,7 @@ def test_interval_validity_matches_real_interval_definition(
         sp.Integer(upper),
         upper_closed,
     ]
-    expected = lower < upper or (
-        lower == upper and lower_closed and upper_closed
-    )
+    expected = lower < upper or (lower == upper and lower_closed and upper_closed)
     assert ts._valid_interval(interval) is expected
 
 
@@ -1045,6 +1047,7 @@ def test_cache_is_cleared_at_start_of_simplify(ts, x):
 
     assert ts._dnf_cache.get(x > 0) != "stale"
     assert ts._cnf_cache.get(x > 0) != "stale"
+
 
 if __name__ == "__main__":
     import pytest

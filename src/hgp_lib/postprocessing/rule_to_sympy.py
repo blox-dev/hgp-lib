@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from collections.abc import Callable
 from types import SimpleNamespace
+from typing import Any
 
-import sympy as sp
 import numpy as np
+import sympy as sp
 
 from .simplifier import ThresholdSimplifier
 
@@ -193,8 +194,7 @@ def _convert_rule(
 
         if value < 0 or value >= len(features):
             raise IndexError(
-                f"Literal feature index {value} is outside "
-                f"features[0:{len(features)}]."
+                f"Literal feature index {value} is outside features[0:{len(features)}]."
             )
 
         expression = feature_to_sympy(features[value], symbols)
@@ -205,7 +205,9 @@ def _convert_rule(
         if not children:
             expression = sp.true
         else:
-            parsed_children = [_convert_rule(child, features, symbols) for child in children]
+            parsed_children = [
+                _convert_rule(child, features, symbols) for child in children
+            ]
             expression = sp.And(*parsed_children)
 
     elif kind == "Or":
@@ -214,13 +216,14 @@ def _convert_rule(
         if not children:
             expression = sp.false
         else:
-            parsed_children = [_convert_rule(child, features, symbols) for child in children]
+            parsed_children = [
+                _convert_rule(child, features, symbols) for child in children
+            ]
             expression = sp.Or(*parsed_children)
 
     else:
         raise TypeError(
-            f"Unsupported rule node type {kind!r}. "
-            "Expected Literal, And, or Or."
+            f"Unsupported rule node type {kind!r}. Expected Literal, And, or Or."
         )
 
     if negated:
@@ -302,10 +305,7 @@ def rule_to_sympy(
         )
 
     if original_columns is None:
-        original_columns = [
-            _feature_base_name(feature)
-            for feature in features
-        ]
+        original_columns = [_feature_base_name(feature) for feature in features]
 
     original_columns = list(dict.fromkeys(original_columns))
 
